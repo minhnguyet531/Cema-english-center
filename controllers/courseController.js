@@ -164,9 +164,8 @@ Course.watch().on("change", async () => {
     for (let i = 0; i < courses.length; i++) {
         totalViews += courses[i].views;
     }
+    stats.views = totalViews;
+    stats.createAt = new Date(Date.now());
 
-    stats[0].views = totalViews;
-    stats[0].createdAt = new Date(Data.now());
-
-    await stats[0].save();
+    await stats.save();
 });
