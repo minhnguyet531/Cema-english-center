@@ -7,10 +7,12 @@ import { sendToken } from "../utils/sendToken.js";
 import getDataUri from "../utils/dataUri.js";
 import crypto from "crypto";
 import cloudinary from "cloudinary";
+import { Stats } from "../models/StatsModel.js";
 
 export const register = catchAsyncError(async (req, res, next) => {
     const { name, email, password } = req.body;
     const file = req.file;
+
     if (!name || !email || !password || !file)
         return next(new ErrorHandler("Please enter all fields ", 400));
 
@@ -48,7 +50,7 @@ export const login = catchAsyncError(async (req, res, next) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) return next(new ErrorHandler("Incorrent Credentials", 401));
 
-    sendToken(res, user, `Welcome ${user.name}`, 200);
+    sendToken(res, user, `Welcome back, ${user.name}`, 200);
 });
 
 export const logout = catchAsyncError(async (req, res, next) => {
@@ -63,11 +65,29 @@ export const logout = catchAsyncError(async (req, res, next) => {
 });
 
 export const getMyProfile = catchAsyncError(async (req, res, next) => {
-    const user = await User.findById(req.user._id).lean();
+    const user = await User.findById(req.user._id);
     res.status(200).json({
         success: true,
         user,
     });
+});
+
+export const deleteMyProfile = catchAsyncError(async (req, res, next) => {
+    const user = await User.findById(req.user._id);
+
+    await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+    //Cancel subcription
+    await user.deleteOne();
+
+    res.status(200)
+        .cookie("token", null, {
+            expires: new Date(Date.now()),
+        })
+        .json({
+            success: true,
+            message: "User Deleted Successfully",
+        });
 });
 
 export const changePassword = catchAsyncError(async (req, res, next) => {
@@ -110,10 +130,9 @@ export const updateProfile = catchAsyncError(async (req, res, next) => {
 
 export const updateProfilePicture = catchAsyncError(async (req, res, next) => {
     // Cloudinary to do
-    const file = req.file;
-
     const user = await User.findById(req.user._id);
 
+    const file = req.file;
     const fileUri = getDataUri(file);
     const myCloud = await cloudinary.v2.uploader.upload(fileUri.content);
 
@@ -143,12 +162,12 @@ export const forgetPassword = catchAsyncError(async (req, res, next) => {
     await user.save();
 
     const url = `${process.env.FRONTEND_URL}/resetpassword/${resetToken}`;
-    const message = `Click on the link to reset your password.
+    const message = `Nhấp vào liên kết để đặt lại mật khẩu của bạn.
   ${url}
-  If you haven't requested then please ignore
+  Nếu bạn không yêu cầu xin vui lòng bỏ qua
   `;
     // Send token via email
-    await sendEmail(user.email, "CourseBundler Reset Password", message);
+    await sendEmail(user.email, "CemaEnglishCenter Reset Password", message);
 
     res.status(200).json({
         success: true,
@@ -234,12 +253,57 @@ export const removeFromPlaylist = catchAsyncError(async (req, res, next) => {
     });
 });
 
-// admin controller
+// admin controllers
 export const getAllUsers = catchAsyncError(async (req, res, next) => {
     // const user
+    const users = await User.find({});
+    res.status(200).json({
+        success: true,
+        users,
+    });
+});
+
+export const updateUserRole = catchAsyncError(async (req, res, next) => {
+    const user = await User.findById(req.params.id);
+
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    if (user.role === "user") user.role = "admin";
+    else user.role = "user";
+
+    await user.save();
 
     res.status(200).json({
         success: true,
-        message: "Removed from Playlist",
+        message: "Role updated",
     });
+});
+
+export const deleteUser = catchAsyncError(async (req, res, next) => {
+    const user = await User.findById(req.params.id);
+
+    if (!user) return next(new ErrorHandler("User not found", 404));
+
+    await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+    //Cancel subcription
+    await user.deleteOne();
+
+    res.status(200).json({
+        success: true,
+        message: "User Deleted Successfully",
+    });
+});
+
+User.watch().on("change", async () => {
+    const stats = await Stats.findOne({}).sort({ createdAt: -1 }).limit(1);
+
+    const subscription = await User.find({ "subscription.status": "active" });
+
+    stats[0].users = await User.countDocuments();
+
+    stats[0].subscription = subscription.length;
+    stats[0].createAt = new Date(Date.now());
+
+    await stats[0].save();
 });

@@ -1,11 +1,25 @@
 import { catchAsyncError } from "../middlewares/catchAsyncError.js";
 import { Course } from "../models/CourseModel.js";
+import { Stats } from "../models/StatsModel.js";
 import getDataUri from "../utils/dataUri.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import cloudinary from "cloudinary";
 
 export const getAllCourse = catchAsyncError(async (req, res, next) => {
-    const courses = await Course.find().lean();
+    const keyword = req.query.keyword || "";
+    const category = req.query.category || "";
+
+    const courses = await Course.find({
+        title: {
+            $regex: keyword,
+            $options: "i",
+        },
+        category: {
+            $regex: category,
+            $options: "i",
+        },
+    }).select("-lectures");
+    // const courses = await Course.find().learn();
     res.status(200).json({
         success: true,
         courses,
@@ -13,26 +27,14 @@ export const getAllCourse = catchAsyncError(async (req, res, next) => {
 });
 
 export const createCourse = catchAsyncError(async (req, res, next) => {
-    console.log(req.body);
     const { title, description, category, createdBy } = req.body;
     if (!title || !description || !category || !createdBy)
         return next(new ErrorHandler("Please add all fields", 400));
 
-    // const file = req.file;
-    // const fileUri = getDataUri(file);
+    const file = req.file;
+    const fileUri = getDataUri(file);
 
-    // const myCloud = await cloudinary.v2.uploader.upload(fileUri.content);
-
-    // await Course.create({
-    //     title,
-    //     description,
-    //     category,
-    //     createdBy,
-    //     poster: {
-    //         public_id: myCloud.public_id,
-    //         url: myCloud.secure_url,
-    //     },
-    // });
+    const myCloud = await cloudinary.v2.uploader.upload(fileUri.content);
 
     await Course.create({
         title,
@@ -40,8 +42,8 @@ export const createCourse = catchAsyncError(async (req, res, next) => {
         category,
         createdBy,
         poster: {
-            public_id: "myCloud.public_id",
-            url: "myCloud.secure_url",
+            public_id: myCloud.public_id,
+            url: myCloud.secure_url,
         },
     });
 
@@ -51,7 +53,7 @@ export const createCourse = catchAsyncError(async (req, res, next) => {
     });
 });
 
-export const getCourseLecture = catchAsyncError(async (req, res, next) => {
+export const getCourseLectures = catchAsyncError(async (req, res, next) => {
     const course = await Course.findById(req.params.id);
     if (!course) return next(new ErrorHandler("No Course Found", 404));
 
@@ -127,6 +129,7 @@ export const deleteLecture = catchAsyncError(async (req, res, next) => {
     const { courseId, lectureId } = req.query;
 
     const course = await Course.findById(courseId);
+
     if (!course) return next(new ErrorHandler("No Course Found", 404));
 
     const lecture = course.lectures.find((item) => {
@@ -149,4 +152,21 @@ export const deleteLecture = catchAsyncError(async (req, res, next) => {
         success: true,
         message: "Lecture Deleted Successfully",
     });
+});
+
+Course.watch().on("change", async () => {
+    const stats = await Stats.findOne({}).sort({ createdAt: -1 }).limit(1);
+
+    const courses = await Course.find({});
+
+    let totalViews = 0;
+
+    for (let i = 0; i < courses.length; i++) {
+        totalViews += courses[i].views;
+    }
+
+    stats[0].views = totalViews;
+    stats[0].createdAt = new Date(Data.now());
+
+    await stats[0].save();
 });

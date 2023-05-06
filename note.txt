@@ -1,0 +1,5 @@
+npm i bcrypt cloudinary cookie-parser cors datauri dotenv express jsonwebtoken mongoose multer node-cron nodemailer razorpay validator
+
+
+==> Xem lại video #26 ở phút thứ 11
+Xem lại video #27 ở phút thứ 19
