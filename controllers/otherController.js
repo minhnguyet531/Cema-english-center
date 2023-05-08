@@ -41,7 +41,7 @@ export const courseRequest = catchAsyncError(async (req, res, next) => {
 });
 
 export const getDashboardStats = catchAsyncError(async (req, res, next) => {
-    const stats = await Stats.find({}).sort({ createdAt: -1 }).limit(12);
+    const stats = await Stats.find({}).sort({ createdAt: "desc" }).limit(12);
 
     const statsData = [];
     for (let i = 0; i < stats.length; i++) {
@@ -77,8 +77,7 @@ export const getDashboardStats = catchAsyncError(async (req, res, next) => {
         const difference = {
             users: statsData[11].users - statsData[10].users,
             views: statsData[11].views - statsData[10].views,
-            subscription:
-                statsData[11].subscription - statsData[10].subscription,
+            subscription: statsData[11].users - statsData[10].subscription,
         };
 
         usersPercentage = (difference.users / statsData[10].users) * 100;
@@ -91,17 +90,17 @@ export const getDashboardStats = catchAsyncError(async (req, res, next) => {
         if (subscriptionPercentage < 0) subscriptionProfit = false;
     }
 
-    res.status(200).json({
+    await res.status(200).json({
         success: true,
         stats: statsData,
         usersCount,
         subscriptionCount,
         viewsCount,
         subscriptionPercentage,
-        usersPercentage,
         viewsPercentage,
-        usersProfit,
-        viewsProfit,
+        usersPercentage,
         subscriptionProfit,
+        viewsProfit,
+        usersProfit,
     });
 });
