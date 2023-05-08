@@ -299,14 +299,19 @@ export const deleteUser = catchAsyncError(async (req, res, next) => {
 });
 
 User.watch().on("change", async () => {
-    const stats = await Stats.findOne({}).sort({ createdAt: -1 }).limit(1);
-
+    const stats = await Stats.findOne({}).sort({ createdAt: "desc" }).limit(1);
     const subscription = await User.find({ "subscription.status": "active" });
 
-    stats[0].users = await User.countDocuments();
+    // stats[0].users = await User.countDocuments();
 
-    stats[0].subscription = subscription.length;
-    stats[0].createAt = new Date(Date.now());
+    // stats[0].subscription = subscription.length;
+    // stats[0].createdAt = new Date(Date.now());
 
-    await stats[0].save();
+    // await stats[0].save();
+    stats.users = await User.countDocuments();
+
+    stats.subscription = subscription.length;
+    stats.createdAt = new Date(Date.now());
+
+    await stats.save();
 });
