@@ -24,11 +24,7 @@ app.use(
 
 app.use(function (req, res, next) {
     // res.header("Access-Control-Allow-Origin", "*");
-    const allowedOrigins = [
-        "http://localhost:3000",
-        "http://gamebrag.onrender.com",
-        "https://gamebrag.onrender.com",
-    ];
+    const allowedOrigins = ["http://localhost:3000", process.env.FRONTEND_URL];
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
         res.setHeader("Access-Control-Allow-Origin", origin);
